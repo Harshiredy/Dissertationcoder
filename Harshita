@@ -1,0 +1,185 @@
+library(readxl)
+dataset <- read_excel("C:/data-2.xlsx")
+
+str(dataset)
+
+summary(dataset$Quantity)
+summary(dataset$UnitPrice)
+
+total_revenue <- sum(dataset$Quantity * dataset$UnitPrice)
+total_revenue
+
+unique_countries <- unique(dataset$Country)
+unique_countries
+
+top_products <- head(sort(table(dataset$Description), decreasing = TRUE), 5)
+top_products
+
+quantity_sold <- tapply(dataset$Quantity, dataset$Description, sum)
+quantity_sold
+
+hist(dataset$Quantity, breaks = 20, col = "lightblue", xlab = "Quantity", main = "Distribution of Quantity Sold")
+
+revenue_by_country <- tapply(dataset$Quantity * dataset$UnitPrice, dataset$Country, sum)
+barplot(revenue_by_country, main = "Revenue by Country", xlab = "Country", ylab = "Revenue")
+
+
+library(ggplot2)
+
+# Calculate quantity sold per product
+quantity_sold <- aggregate(Quantity ~ Description, dataset, sum)
+
+# Create bar chart
+ggplot(quantity_sold, aes(x = Description, y = Quantity)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Product Description", y = "Quantity Sold", title = "Quantity Sold per Product")
+
+
+
+# Convert InvoiceDate to date format
+dataset$InvoiceDate <- as.Date(dataset$InvoiceDate, format = "%m/%d/%Y %H:%M")
+
+# Calculate daily revenue
+daily_revenue <- aggregate(Quantity * UnitPrice ~ InvoiceDate, dataset, sum)
+
+# Create line chart
+ggplot(daily_revenue, aes(x = InvoiceDate, y = `Quantity * UnitPrice`)) +
+  geom_line(color = "blue") +
+  labs(x = "Date", y = "Revenue", title = "Daily Revenue Trend") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
+library(ggplot2)
+
+# Calculate revenue by country
+revenue_by_country <- aggregate((Quantity * UnitPrice) ~ Country, dataset, sum)
+
+# Rename the column
+colnames(revenue_by_country)[2] <- "Revenue"
+
+# Sort the data in descending order of revenue
+revenue_by_country <- revenue_by_country[order(-revenue_by_country$Revenue), ]
+
+# Create pie chart
+ggplot(revenue_by_country, aes(x = "", y = Revenue, fill = Country)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y") +
+  labs(x = NULL, y = NULL, fill = "Country", title = "Revenue Proportion by Country") +
+  theme_void() +
+  theme(legend.position = "right")
+
+
+
+
+library(ggplot2)
+
+# Convert InvoiceDate to a proper date format
+dataset$InvoiceDate <- as.POSIXct(dataset$InvoiceDate, format = "%m/%d/%Y %H:%M")
+
+# Calculate daily revenue
+daily_revenue <- aggregate((dataset$Quantity * dataset$UnitPrice), by = list(Date = as.Date(dataset$InvoiceDate)), FUN = sum)
+
+# Plot daily revenue trend
+ggplot(daily_revenue, aes(x = Date, y = x)) +
+  geom_line(color = "blue") +
+  labs(x = "Date", y = "Revenue", title = "Daily Revenue Trend") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Identify top-selling products
+top_products <- aggregate(dataset$Quantity, by = list(Product = dataset$Description), FUN = sum)
+top_products <- top_products[order(-top_products$x), ]
+top_products <- head(top_products, 5)
+
+# Plot top-selling products
+ggplot(top_products, aes(x = Product, y = x)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Product", y = "Quantity Sold", title = "Top-selling Products")
+
+# Calculate and visualize revenue by country
+revenue_by_country <- aggregate((dataset$Quantity * dataset$UnitPrice), by = list(Country = dataset$Country), FUN = sum)
+revenue_by_country <- revenue_by_country[order(-revenue_by_country$x), ]
+
+ggplot(revenue_by_country, aes(x = Country, y = x)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Country", y = "Revenue", title = "Revenue by Country")
+
+library(dplyr)
+
+# Analyze customer behavior
+unique_customers <- dataset %>%
+  distinct(CustomerID) %>%
+  nrow()
+
+orders_per_customer <- dataset %>%
+  group_by(CustomerID) %>%
+  summarise(Orders = n_distinct(InvoiceNo))
+
+average_orders_per_customer <- mean(orders_per_customer$Orders)
+
+# Print summary
+cat("Number of unique customers:", unique_customers, "\n")
+cat("Average orders per customer:", average_orders_per_customer, "\n")
+
+
+library(corrplot)
+
+
+# Calculate correlation matrix
+correlation_matrix <- cor(dataset[, c("Quantity", "UnitPrice", "CustomerID")])
+
+# Visualize correlation matrix
+library(corrplot)
+corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", tl.srt = 45)
+
+
+
+# Perform linear regression
+lm_model <- lm(Quantity ~ UnitPrice + CustomerID, data = dataset)
+
+# Print the summary of the linear regression model
+summary(lm_model)
+
+
+library(ggplot2)
+
+# Create scatter plot
+ggplot(data = dataset, aes(x = UnitPrice, y = Quantity)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(x = "Unit Price", y = "Quantity", title = "Linear Regression Model")
+
+
+
+# Perform linear regression
+lm_model <- lm(Quantity ~ UnitPrice + CustomerID, data = dataset)
+
+# Print the summary of the linear regression model
+summary(lm_model)
+
+# Evaluate model assumptions
+# 1. Check residuals vs. fitted values plot
+plot(lm_model, which = 1)
+
+# 2. Check normality of residuals
+plot(lm_model, which = 2)
+
+# 3. Check constant variance of residuals (homoscedasticity)
+plot(lm_model, which = 3)
+
+# 4. Check influential observations (outliers)
+plot(lm_model, which = 5)
+
+
+
+# Install and load the recommenderlab package
+install.packages("recommenderlab")
+library(recommenderlab)
+
+# Create a data frame with the necessary columns (e.g., CustomerID, StockCode)
+recommendation_data <- dataset[, c("CustomerID", "StockCode")]
+
