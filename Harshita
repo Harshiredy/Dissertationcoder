@@ -1,5 +1,5 @@
-library(readxl)
-dataset <- read_excel("C:/data-2.xlsx")
+library(readr)
+dataset <- read_csv("C:/Users/User/Downloads/data-2.csv")
 
 str(dataset)
 
@@ -137,49 +137,129 @@ library(corrplot)
 corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", tl.srt = 45)
 
 
+# Load necessary libraries
+library(dplyr)
+library(caret)
+library(glmnet)
 
-# Perform linear regression
-lm_model <- lm(Quantity ~ UnitPrice + CustomerID, data = dataset)
+# Data preprocessing
 
-# Print the summary of the linear regression model
-summary(lm_model)
+# Create a binary target variable for repeat purchase
+dataset$RepeatPurchase <- ifelse(dataset$Quantity > 10, 1, 0)
 
+# Split the data into training and testing sets
+set.seed(123)
+trainIndex <- createDataPartition(dataset$RepeatPurchase, p = 0.8, 
+                                  list = FALSE,
+                                  times = 1)
+trainData <- dataset[trainIndex, ]
+testData <- dataset[-trainIndex, ]
 
+# Build a logistic regression model
+model <- glm(RepeatPurchase ~ Quantity + UnitPrice + Country, data = trainData, family = "binomial")
+
+# Make predictions on the test set
+predictions <- predict(model, newdata = testData, type = "response")
+
+# Convert predicted probabilities to binary predictions
+predicted_classes <- ifelse(predictions > 0.5, 1, 0)
+
+# Calculate accuracy
+accuracy <- sum(predicted_classes == testData$RepeatPurchase) / length(testData$RepeatPurchase)
+cat("Accuracy:", accuracy, "\n")
+
+# logistic regression accuracy score visualization
+
+# Create a confusion matrix
+conf_matrix <- table(Actual = testData$RepeatPurchase, Predicted = predicted_classes)
+
+# Plot the confusion matrix
 library(ggplot2)
+conf_matrix_plot <- as.data.frame(conf_matrix)
+ggplot(data = conf_matrix_plot, aes(x = Actual, y = Predicted)) +
+  geom_tile(aes(fill = Freq), color = "white") +
+  geom_text(aes(label = Freq)) +
+  theme_minimal() +
+  labs(title = "Confusion Matrix",
+       x = "Actual",
+       y = "Predicted")
 
-# Create scatter plot
-ggplot(data = dataset, aes(x = UnitPrice, y = Quantity)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE, color = "blue") +
-  labs(x = "Unit Price", y = "Quantity", title = "Linear Regression Model")
+# Load necessary library for ROC curve
+library(pROC)
 
+# Calculate ROC curve
+roc_curve <- roc(testData$RepeatPurchase, predictions)
 
-
-# Perform linear regression
-lm_model <- lm(Quantity ~ UnitPrice + CustomerID, data = dataset)
-
-# Print the summary of the linear regression model
-summary(lm_model)
-
-# Evaluate model assumptions
-# 1. Check residuals vs. fitted values plot
-plot(lm_model, which = 1)
-
-# 2. Check normality of residuals
-plot(lm_model, which = 2)
-
-# 3. Check constant variance of residuals (homoscedasticity)
-plot(lm_model, which = 3)
-
-# 4. Check influential observations (outliers)
-plot(lm_model, which = 5)
+# Plot ROC curve
+plot(roc_curve, main = "ROC Curve")
 
 
+# decision Tree classification 
 
-# Install and load the recommenderlab package
-install.packages("recommenderlab")
-library(recommenderlab)
+library(readr)
+library(datasets)
+library(caTools)
+library(party)
+library(dplyr)
+library(magrittr)
+data_2 <- read_csv("C:/Users/User/Downloads/data-2.csv")
+View(data_2)
+library(dplyr)
 
-# Create a data frame with the necessary columns (e.g., CustomerID, StockCode)
-recommendation_data <- dataset[, c("CustomerID", "StockCode")]
+
+library(tidymodels)
+library(tidyr)
+
+df = subset(data_2, select = -c(InvoiceNo,StockCode, InvoiceDate, Description) )
+
+
+set.seed(123)
+data_split <- initial_split(df, prop = 0.75)
+train_data <- training(data_split)
+test_data <- testing(data_split)
+
+
+tree_spec <- decision_tree() %>%
+  set_engine("rpart") %>%
+  set_mode("regression")
+
+
+tree_fit <- tree_spec %>%
+  fit(UnitPrice ~ ., data = train_data)
+
+
+predictions <- tree_fit %>%
+  predict(test_data) %>%
+  pull(.pred)
+
+metrics <- metric_set(rmse, rsq)
+model_performance <- test_data %>%
+  mutate(predictions = predictions) %>%
+  metrics(truth = UnitPrice, estimate = predictions)
+
+print(model_performance)
+
+
+library(rpart.plot)
+
+# Plot the decision tree
+rpart.plot(tree_fit$fit, type = 4, extra = 101, under = TRUE, cex = 0.8, box.palette = "auto")
+
+
+
+rules <- rpart.rules(tree_fit$fit)
+print(rules)
+
+# Variable importance plot
+var_importance <- vip::vip(tree_fit, num_features = 10)
+print(var_importance)
+
+
+table_mat <- table(test_data$UnitPrice, predictions)
+table_mat
+
+accuracy <- sum(diag(table_mat)) / sum(table_mat)
+
+print(paste('Accuracy', accuracy))
+
 
